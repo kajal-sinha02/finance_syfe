@@ -8,7 +8,7 @@ import com.finance.finance.repository.TransactionRepository;
 import com.finance.finance.repository.UserRepository;
 import com.finance.finance.service.ReportService;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -19,71 +19,91 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class ReportServiceImpl implements ReportService {
 
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
 
-    @Autowired
-    public ReportServiceImpl(TransactionRepository transactionRepository, UserRepository userRepository) {
-        this.transactionRepository = transactionRepository;
-        this.userRepository = userRepository;
-    }
-
     @Override
-    public MonthlyReportResponse getMonthlyReport(Long userId, int month, int year) {
-        // Validate user
-        userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    public MonthlyReportResponse getMonthlyReport(String username, int month, int year) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
-        // Date range
         LocalDate start = LocalDate.of(year, month, 1);
         LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
 
-        // Fetch transactions
-        List<Transaction> transactions = transactionRepository.findByUserIdAndDateBetween(userId, start, end);
+        List<Transaction> transactions = transactionRepository.findByUserIdAndDateBetween(user.getId(), start, end);
 
-        // Aggregate income and expenses using streams
         Map<String, BigDecimal> incomeByCategory = transactions.stream()
-            .filter(tx -> tx.getType() != null && tx.getCategory() != null)
-            .filter(tx -> "INCOME".equalsIgnoreCase(tx.getType().trim()))
-            .collect(Collectors.groupingBy(
-                tx -> tx.getCategory().getName(),
-                Collectors.mapping(tx -> BigDecimal.valueOf(tx.getAmount()),
-                                   Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
-            ));
+                .filter(tx -> tx.getType() != null && tx.getCategory() != null)
+                .filter(tx -> "INCOME".equalsIgnoreCase(tx.getType().trim()))
+                .collect(Collectors.groupingBy(
+                        tx -> tx.getCategory().getName(),
+                        Collectors.mapping(
+                                tx -> BigDecimal.valueOf(tx.getAmount()),
+                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                        )
+                ));
 
         Map<String, BigDecimal> expenseByCategory = transactions.stream()
-            .filter(tx -> tx.getType() != null && tx.getCategory() != null)
-            .filter(tx -> "EXPENSE".equalsIgnoreCase(tx.getType().trim()))
-            .collect(Collectors.groupingBy(
-                tx -> tx.getCategory().getName(),
-                Collectors.mapping(tx -> BigDecimal.valueOf(tx.getAmount()),
-                                   Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
-            ));
+                .filter(tx -> tx.getType() != null && tx.getCategory() != null)
+                .filter(tx -> "EXPENSE".equalsIgnoreCase(tx.getType().trim()))
+                .collect(Collectors.groupingBy(
+                        tx -> tx.getCategory().getName(),
+                        Collectors.mapping(
+                                tx -> BigDecimal.valueOf(tx.getAmount()),
+                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                        )
+                ));
 
-        // Totals
         BigDecimal totalIncome = incomeByCategory.values().stream()
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalExpense = expenseByCategory.values().stream()
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Net savings
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal netSavings = totalIncome.subtract(totalExpense);
 
-        return new MonthlyReportResponse(incomeByCategory, expenseByCategory, netSavings);
+        return new MonthlyReportResponse(month, year, incomeByCategory, expenseByCategory, netSavings);
     }
 
     @Override
-    public YearlyReportResponse getYearlyReport(Long userId, int year) {
-        // Validate user exists
-        userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    public YearlyReportResponse getYearlyReport(String username, int year) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
-        Map<Integer, MonthlyReportResponse> monthlyReports = new HashMap<>();
-        for (int m = 1; m <= 12; m++) {
-            monthlyReports.put(m, getMonthlyReport(userId, m, year));
-        }
-        return new YearlyReportResponse(year, monthlyReports);
+        LocalDate start = LocalDate.of(year, 1, 1);
+        LocalDate end = LocalDate.of(year, 12, 31);
+
+        List<Transaction> transactions = transactionRepository.findByUserIdAndDateBetween(user.getId(), start, end);
+
+        Map<String, BigDecimal> incomeByCategory = transactions.stream()
+                .filter(tx -> tx.getType() != null && tx.getCategory() != null)
+                .filter(tx -> "INCOME".equalsIgnoreCase(tx.getType().trim()))
+                .collect(Collectors.groupingBy(
+                        tx -> tx.getCategory().getName(),
+                        Collectors.mapping(
+                                tx -> BigDecimal.valueOf(tx.getAmount()),
+                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                        )
+                ));
+
+        Map<String, BigDecimal> expenseByCategory = transactions.stream()
+                .filter(tx -> tx.getType() != null && tx.getCategory() != null)
+                .filter(tx -> "EXPENSE".equalsIgnoreCase(tx.getType().trim()))
+                .collect(Collectors.groupingBy(
+                        tx -> tx.getCategory().getName(),
+                        Collectors.mapping(
+                                tx -> BigDecimal.valueOf(tx.getAmount()),
+                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                        )
+                ));
+
+        BigDecimal totalIncome = incomeByCategory.values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalExpense = expenseByCategory.values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal netSavings = totalIncome.subtract(totalExpense);
+
+        return new YearlyReportResponse(year, incomeByCategory, expenseByCategory, netSavings);
     }
 }

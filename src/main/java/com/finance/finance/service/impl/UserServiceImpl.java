@@ -98,6 +98,9 @@ public class UserServiceImpl implements UserService {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
         session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
+         User user = userRepository.findByUsername(request.getUsername())
+        .orElseThrow(() -> new RuntimeException("User not found"));
+    session.setAttribute("user", user);
     }
 
     @Override

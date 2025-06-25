@@ -8,7 +8,6 @@ import com.finance.finance.entity.User;
 import com.finance.finance.exception.ResourceNotFoundException;
 import com.finance.finance.repository.CategoryRepository;
 import com.finance.finance.repository.TransactionRepository;
-import com.finance.finance.repository.UserRepository;
 import com.finance.finance.service.TransactionService;
 import org.springframework.stereotype.Service;
 
@@ -22,31 +21,25 @@ import java.util.stream.Collectors;
 public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
-    private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
 
     public TransactionServiceImpl(TransactionRepository transactionRepository,
-                                  UserRepository userRepository,
                                   CategoryRepository categoryRepository) {
         this.transactionRepository = transactionRepository;
-        this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
     }
 
     @Override
-    public TransactionResponse createTransaction(TransactionRequest request, Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
-
+    public TransactionResponse createTransaction(TransactionRequest request, User user) {
         Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getCategoryId()));
+                .filter(c -> c.getUser() == null || c.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found or not owned by user"));
 
         Transaction transaction = new Transaction();
         transaction.setUser(user);
         transaction.setCategory(category);
         transaction.setAmount(request.getAmount());
         transaction.setDate(request.getDate());
-        // Normalize transaction type to uppercase and trim
         transaction.setType(request.getType() != null ? request.getType().trim().toUpperCase() : null);
         transaction.setDescription(request.getDescription());
 
@@ -55,48 +48,81 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public TransactionResponse getTransactionById(Long id) {
-        Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with ID: " + id));
+    public TransactionResponse getTransactionById(Long id, User user) {
+        Transaction transaction = transactionRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or you do not have access"));
         return mapToResponse(transaction);
     }
 
     @Override
-    public List<TransactionResponse> getAllTransactions(Long userId, LocalDate startDate, LocalDate endDate, Long categoryId, String type) {
-        List<Transaction> transactions = transactionRepository.findFiltered(userId, startDate, endDate, categoryId, type);
-        return transactions.stream()
+    public List<TransactionResponse> getTransactions(User user, String type, Long categoryId, LocalDate startDate, LocalDate endDate) {
+        // ✅ Normalize type to uppercase before passing to query
+        String normalizedType = (type != null) ? type.trim().toUpperCase() : null;
+
+        return transactionRepository.findFiltered(user.getId(), startDate, endDate, categoryId, normalizedType)
+                .stream()
+                .filter(tx -> tx.getCategory() != null)
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public TransactionResponse updateTransaction(Long id, TransactionRequest request) {
-        Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with ID: " + id));
+public TransactionResponse updateTransaction(Long id, TransactionRequest request, User user) {
+    Transaction transaction = transactionRepository.findByIdAndUser(id, user)
+            .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or not accessible"));
 
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getCategoryId()));
+    Category category = categoryRepository.findById(request.getCategoryId())
+            .filter(c -> c.getUser() == null || c.getUser().getId().equals(user.getId()))
+            .orElseThrow(() -> new ResourceNotFoundException("Category not found or not accessible"));
 
-        transaction.setAmount(request.getAmount());
-        transaction.setDate(request.getDate());
-        // Normalize type on update as well
-        transaction.setType(request.getType() != null ? request.getType().trim().toUpperCase() : null);
-        transaction.setDescription(request.getDescription());
-        transaction.setCategory(category);
+    // Only update fields except date
+    transaction.setAmount(request.getAmount());
+    transaction.setType(request.getType() != null ? request.getType().trim().toUpperCase() : null);
+    transaction.setDescription(request.getDescription());
+    transaction.setCategory(category);
 
-        Transaction updated = transactionRepository.save(transaction);
-        return mapToResponse(updated);
+    Transaction updated = transactionRepository.save(transaction);
+    return mapToResponse(updated);
+}
+
+    // @Override
+    // public TransactionResponse updateTransaction(Long id, TransactionRequest request, User user) {
+    //     Transaction transaction = transactionRepository.findByIdAndUser(id, user)
+    //             .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or not accessible"));
+
+    //     Category category = categoryRepository.findById(request.getCategoryId())
+    //             .filter(c -> c.getUser() == null || c.getUser().getId().equals(user.getId()))
+    //             .orElseThrow(() -> new ResourceNotFoundException("Category not found or not accessible"));
+
+    //     transaction.setAmount(request.getAmount());
+    //     transaction.setDate(request.getDate());
+    //     transaction.setType(request.getType() != null ? request.getType().trim().toUpperCase() : null);
+    //     transaction.setDescription(request.getDescription());
+    //     transaction.setCategory(category);
+
+    //     Transaction updated = transactionRepository.save(transaction);
+    //     return mapToResponse(updated);
+    // }
+
+    @Override
+    public void deleteTransaction(Long id, User user) {
+        Transaction transaction = transactionRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or you do not have access"));
+
+        transactionRepository.delete(transaction);
     }
 
     @Override
-    public void deleteTransaction(Long id) {
-        if (!transactionRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Transaction not found with ID: " + id);
-        }
-        transactionRepository.deleteById(id);
+    public Optional<BigDecimal> sumAmountByUserAndTypeAndDateAfter(User user, String type, LocalDate startDate) {
+        String normalizedType = (type != null) ? type.trim().toUpperCase() : null;
+        return transactionRepository.getSumAmountByUserAndTypeAndDateAfter(user, normalizedType, startDate);
     }
 
     private TransactionResponse mapToResponse(Transaction transaction) {
+        if (transaction.getCategory() == null) {
+            throw new ResourceNotFoundException("Transaction has no associated category");
+        }
+
         TransactionResponse response = new TransactionResponse();
         response.setId(transaction.getId());
         response.setAmount(transaction.getAmount());
@@ -106,28 +132,5 @@ public class TransactionServiceImpl implements TransactionService {
         response.setCategoryId(transaction.getCategory().getId());
         response.setCategoryName(transaction.getCategory().getName());
         return response;
-    }
-
-    @Override
-    public List<TransactionResponse> getTransactions(Long userId, String type, Long categoryId, LocalDate startDate, LocalDate endDate) {
-        return transactionRepository.findFiltered(userId, startDate, endDate, categoryId, type)
-                .stream()
-                .map(txn -> {
-                    TransactionResponse res = new TransactionResponse();
-                    res.setId(txn.getId());
-                    res.setAmount(txn.getAmount());
-                    res.setDate(txn.getDate());
-                    res.setType(txn.getType());
-                    res.setDescription(txn.getDescription());
-                    res.setCategoryId(txn.getCategory().getId());
-                    res.setCategoryName(txn.getCategory().getName());
-                    return res;
-                })
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public Optional<BigDecimal> sumAmountByUserAndTypeAndDateAfter(User user, String type, LocalDate startDate) {
-        return transactionRepository.getSumAmountByUserAndTypeAndDateAfter(user, type, startDate);
     }
 }
