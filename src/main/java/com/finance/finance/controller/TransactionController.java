@@ -1,15 +1,12 @@
-// TransactionController.java
 package com.finance.finance.controller;
 
 import com.finance.finance.dto.request.TransactionRequest;
+import com.finance.finance.dto.request.TransactionUpdateRequest;
 import com.finance.finance.dto.response.TransactionResponse;
 import com.finance.finance.entity.User;
 import com.finance.finance.service.TransactionService;
-import com.finance.finance.service.UserService;
-import jakarta.servlet.http.HttpSession;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,71 +17,60 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
-@RequiredArgsConstructor
 public class TransactionController {
 
     private final TransactionService transactionService;
-    private final UserService userService;
 
-    private User getCurrentUser(HttpSession session) {
-        return (User) session.getAttribute("user");
+    public TransactionController(TransactionService transactionService) {
+        this.transactionService = transactionService;
     }
 
     @PostMapping
-    public ResponseEntity<TransactionResponse> createTransaction(
-            @Valid @RequestBody TransactionRequest request,
-            HttpSession session
-    ) {
-        User user = getCurrentUser(session);
-        TransactionResponse created = transactionService.createTransaction(request, user);
-        return ResponseEntity.ok(created);
+    public ResponseEntity<TransactionResponse> createTransaction(@SessionAttribute("user") User user,
+                                                                 @RequestBody TransactionRequest request) {
+        TransactionResponse created = transactionService.createTransaction(user, request);
+        return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<TransactionResponse> getTransaction(
-            @PathVariable Long id,
-            HttpSession session
-    ) {
-        User user = getCurrentUser(session);
-        TransactionResponse transaction = transactionService.getTransactionById(id, user);
-        return ResponseEntity.ok(transaction);
-    }
+    // @GetMapping
+    // public ResponseEntity<Map<String, List<TransactionResponse>>> getTransactions(
+    //         @SessionAttribute("user") User user,
+    //         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+    //         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+    //         @RequestParam(required = false) Long categoryId) {
 
+    //     List<TransactionResponse> list = transactionService.getTransactions(user, startDate, endDate, categoryId);
+    //     Map<String, List<TransactionResponse>> response = new HashMap<>();
+    //     response.put("transactions", list);
+    //     return ResponseEntity.ok(response);
+    // }
     @GetMapping
-    public ResponseEntity<List<TransactionResponse>> getAllTransactions(
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            HttpSession session
-    ) {
-        User user = getCurrentUser(session);
-        List<TransactionResponse> transactions = transactionService.getTransactions(user, type, categoryId, startDate, endDate);
-        return ResponseEntity.ok(transactions);
-    }
+public ResponseEntity<Map<String, List<TransactionResponse>>> getTransactions(
+        @SessionAttribute("user") User user,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+        @RequestParam(required = false) String category // changed from Long categoryId
+) {
+    List<TransactionResponse> list = transactionService.getTransactions(user, startDate, endDate, category);
+    Map<String, List<TransactionResponse>> response = new HashMap<>();
+    response.put("transactions", list);
+    return ResponseEntity.ok(response);
+}
 
     @PutMapping("/{id}")
-    public ResponseEntity<TransactionResponse> updateTransaction(
-            @PathVariable Long id,
-            @Valid @RequestBody TransactionRequest request,
-            HttpSession session
-    ) {
-        User user = getCurrentUser(session);
-        TransactionResponse updated = transactionService.updateTransaction(id, request, user);
+    public ResponseEntity<TransactionResponse> updateTransaction(@SessionAttribute("user") User user,
+                                                                 @PathVariable Long id,
+                                                                 @RequestBody TransactionUpdateRequest request) {
+        TransactionResponse updated = transactionService.updateTransaction(user, id, request);
         return ResponseEntity.ok(updated);
     }
 
-  @DeleteMapping("/{id}")
-public ResponseEntity<Map<String, String>> deleteTransaction(
-        @PathVariable Long id,
-        HttpSession session
-) {
-    User user = getCurrentUser(session);
-    transactionService.deleteTransaction(id, user);
-
-    Map<String, String> response = new HashMap<>();
-    response.put("message", "Transaction deleted successfully");
-
-    return ResponseEntity.ok(response); // returns 200 OK with body
-}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> deleteTransaction(@SessionAttribute("user") User user,
+                                                                 @PathVariable Long id) {
+        transactionService.deleteTransaction(user, id);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Transaction deleted successfully");
+        return ResponseEntity.ok(response);
+    }
 }

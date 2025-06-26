@@ -1,16 +1,20 @@
 package com.finance.finance.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.List;
-
 @Entity
-@Table(name = "categories")
+@Table(
+    name = "categories",
+    uniqueConstraints = {@UniqueConstraint(columnNames = {"name", "user_id"})}
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Category {
 
     @Id
@@ -20,18 +24,14 @@ public class Category {
     @Column(nullable = false)
     private String name;
 
-    // INCOME or EXPENSE
     @Column(nullable = false)
-    private String type;
+    private String type; // INCOME or EXPENSE
 
-    // true if created by the user
     @Column(nullable = false)
-    private boolean isCustom = false;
+    @JsonProperty("custom")
+    private boolean isCustom;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = true)
+    @JoinColumn(name = "user_id", nullable = true) // ✅ allow null for default categories
     private User user;
-
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
-    private List<Transaction> transactions;
 }

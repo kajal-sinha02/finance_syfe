@@ -6,9 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
-public class SavingsGoalRequest {
-    private String goalName;
+public class SavingsGoalUpdateRequest {
     private BigDecimal targetAmount;
     private LocalDate targetDate;
-    private LocalDate startDate;
 }

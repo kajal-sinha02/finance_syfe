@@ -1,20 +1,21 @@
 package com.finance.finance.service.impl;
 
 import com.finance.finance.dto.request.TransactionRequest;
+import com.finance.finance.dto.request.TransactionUpdateRequest;
 import com.finance.finance.dto.response.TransactionResponse;
 import com.finance.finance.entity.Category;
 import com.finance.finance.entity.Transaction;
 import com.finance.finance.entity.User;
-import com.finance.finance.exception.ResourceNotFoundException;
 import com.finance.finance.repository.CategoryRepository;
 import com.finance.finance.repository.TransactionRepository;
 import com.finance.finance.service.TransactionService;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,114 +24,134 @@ public class TransactionServiceImpl implements TransactionService {
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
 
-    public TransactionServiceImpl(TransactionRepository transactionRepository,
-                                  CategoryRepository categoryRepository) {
+    public TransactionServiceImpl(TransactionRepository transactionRepository, CategoryRepository categoryRepository) {
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
     }
 
     @Override
-    public TransactionResponse createTransaction(TransactionRequest request, User user) {
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .filter(c -> c.getUser() == null || c.getUser().getId().equals(user.getId()))
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found or not owned by user"));
+    public TransactionResponse createTransaction(User user, TransactionRequest request) {
+        if (request.getAmount() == null || request.getAmount() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be positive");
+        }
 
-        Transaction transaction = new Transaction();
-        transaction.setUser(user);
-        transaction.setCategory(category);
-        transaction.setAmount(request.getAmount());
-        transaction.setDate(request.getDate());
-        transaction.setType(request.getType() != null ? request.getType().trim().toUpperCase() : null);
-        transaction.setDescription(request.getDescription());
+        LocalDate date;
+        try {
+            date = LocalDate.parse(request.getDate());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date format");
+        }
 
-        Transaction saved = transactionRepository.save(transaction);
-        return mapToResponse(saved);
+        if (date.isAfter(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date cannot be in the future");
+        }
+
+        Category category = findCategoryByName(user, request.getCategory());
+
+        Transaction transaction = Transaction.builder()
+                .amount(request.getAmount())
+                .date(date)
+                .description(request.getDescription())
+                .category(category)
+                .user(user)
+                .type(category.getType().toUpperCase())
+                .build();
+
+        transactionRepository.save(transaction);
+        return mapToResponse(transaction);
     }
 
+    // @Override
+    // public List<TransactionResponse> getTransactions(User user, LocalDate start, LocalDate end, Long categoryId) {
+    //     List<Transaction> transactions;
+
+    //     if (start != null && end != null) {
+    //         transactions = transactionRepository.findByUserAndDateBetween(user, start, end);
+    //     } else {
+    //         transactions = transactionRepository.findByUser(user);
+    //     }
+
+    //     return transactions.stream()
+    //             .filter(t -> categoryId == null || t.getCategory().getId().equals(categoryId))
+    //             .map(this::mapToResponse)
+    //             .collect(Collectors.toList());
+    // }
+//     @Override
+// public List<TransactionResponse> getTransactions(User user, LocalDate start, LocalDate end, Long categoryId) {
+//     List<Transaction> transactions;
+
+//     if (start != null && end != null) {
+//         transactions = transactionRepository.findByUserAndDateBetween(user, start, end);
+//     } else {
+//         transactions = transactionRepository.findByUser(user);
+//     }
+
+//     return transactions.stream()
+//             .filter(t -> categoryId == null || t.getCategory().getId().equals(categoryId))
+//             .map(this::mapToResponse)
+//             .collect(Collectors.toList());
+// }
+@Override
+public List<TransactionResponse> getTransactions(User user, LocalDate start, LocalDate end, String categoryName) {
+    List<Transaction> transactions;
+
+    if (start != null && end != null) {
+        transactions = transactionRepository.findByUserAndDateBetween(user, start, end);
+    } else {
+        transactions = transactionRepository.findByUser(user);
+    }
+
+    return transactions.stream()
+            .filter(t -> categoryName == null || t.getCategory().getName().equalsIgnoreCase(categoryName))
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
+}
+
     @Override
-    public TransactionResponse getTransactionById(Long id, User user) {
-        Transaction transaction = transactionRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or you do not have access"));
+    public TransactionResponse updateTransaction(User user, Long id, TransactionUpdateRequest request) {
+        Transaction transaction = transactionRepository.findById(id)
+                .filter(t -> t.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+
+        if (request.getAmount() != null && request.getAmount() > 0) {
+            transaction.setAmount(request.getAmount());
+        }
+
+        if (request.getDescription() != null) {
+            transaction.setDescription(request.getDescription());
+        }
+
+        transactionRepository.save(transaction);
         return mapToResponse(transaction);
     }
 
     @Override
-    public List<TransactionResponse> getTransactions(User user, String type, Long categoryId, LocalDate startDate, LocalDate endDate) {
-        // ✅ Normalize type to uppercase before passing to query
-        String normalizedType = (type != null) ? type.trim().toUpperCase() : null;
-
-        return transactionRepository.findFiltered(user.getId(), startDate, endDate, categoryId, normalizedType)
-                .stream()
-                .filter(tx -> tx.getCategory() != null)
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-public TransactionResponse updateTransaction(Long id, TransactionRequest request, User user) {
-    Transaction transaction = transactionRepository.findByIdAndUser(id, user)
-            .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or not accessible"));
-
-    Category category = categoryRepository.findById(request.getCategoryId())
-            .filter(c -> c.getUser() == null || c.getUser().getId().equals(user.getId()))
-            .orElseThrow(() -> new ResourceNotFoundException("Category not found or not accessible"));
-
-    // Only update fields except date
-    transaction.setAmount(request.getAmount());
-    transaction.setType(request.getType() != null ? request.getType().trim().toUpperCase() : null);
-    transaction.setDescription(request.getDescription());
-    transaction.setCategory(category);
-
-    Transaction updated = transactionRepository.save(transaction);
-    return mapToResponse(updated);
-}
-
-    // @Override
-    // public TransactionResponse updateTransaction(Long id, TransactionRequest request, User user) {
-    //     Transaction transaction = transactionRepository.findByIdAndUser(id, user)
-    //             .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or not accessible"));
-
-    //     Category category = categoryRepository.findById(request.getCategoryId())
-    //             .filter(c -> c.getUser() == null || c.getUser().getId().equals(user.getId()))
-    //             .orElseThrow(() -> new ResourceNotFoundException("Category not found or not accessible"));
-
-    //     transaction.setAmount(request.getAmount());
-    //     transaction.setDate(request.getDate());
-    //     transaction.setType(request.getType() != null ? request.getType().trim().toUpperCase() : null);
-    //     transaction.setDescription(request.getDescription());
-    //     transaction.setCategory(category);
-
-    //     Transaction updated = transactionRepository.save(transaction);
-    //     return mapToResponse(updated);
-    // }
-
-    @Override
-    public void deleteTransaction(Long id, User user) {
-        Transaction transaction = transactionRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or you do not have access"));
+    public void deleteTransaction(User user, Long id) {
+        Transaction transaction = transactionRepository.findById(id)
+                .filter(t -> t.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
 
         transactionRepository.delete(transaction);
     }
 
-    @Override
-    public Optional<BigDecimal> sumAmountByUserAndTypeAndDateAfter(User user, String type, LocalDate startDate) {
-        String normalizedType = (type != null) ? type.trim().toUpperCase() : null;
-        return transactionRepository.getSumAmountByUserAndTypeAndDateAfter(user, normalizedType, startDate);
+    private TransactionResponse mapToResponse(Transaction transaction) {
+        return TransactionResponse.builder()
+                .id(transaction.getId())
+                .amount(new BigDecimal(String.format("%.2f", transaction.getAmount())))
+                .date(transaction.getDate().toString())
+                .category(transaction.getCategory().getName())
+                .description(transaction.getDescription())
+                .type(transaction.getType()) // ✅ included in response
+                .build();
     }
 
-    private TransactionResponse mapToResponse(Transaction transaction) {
-        if (transaction.getCategory() == null) {
-            throw new ResourceNotFoundException("Transaction has no associated category");
-        }
+     private Category findCategoryByName(User user, String name) {
+        Category category = categoryRepository.findByNameAndUser(name, user)
+                .or(() -> categoryRepository.findByNameAndUserIsNull(name))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid category"));
 
-        TransactionResponse response = new TransactionResponse();
-        response.setId(transaction.getId());
-        response.setAmount(transaction.getAmount());
-        response.setDate(transaction.getDate());
-        response.setType(transaction.getType());
-        response.setDescription(transaction.getDescription());
-        response.setCategoryId(transaction.getCategory().getId());
-        response.setCategoryName(transaction.getCategory().getName());
-        return response;
+        System.out.println("Resolved category: " + category.getName() + ", type: " + category.getType()); // DEBUG
+
+        return category;
     }
 }

@@ -1,65 +1,61 @@
 package com.finance.finance.controller;
 
 import com.finance.finance.dto.request.SavingsGoalRequest;
+import com.finance.finance.dto.request.SavingsGoalUpdateRequest;
 import com.finance.finance.dto.response.SavingsGoalResponse;
+import com.finance.finance.entity.User;
 import com.finance.finance.service.SavingsGoalService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/goals")
-@RequiredArgsConstructor
 public class SavingsGoalController {
 
-    private final SavingsGoalService savingsGoalService;
+    private final SavingsGoalService goalService;
+
+    public SavingsGoalController(SavingsGoalService goalService) {
+        this.goalService = goalService;
+    }
 
     @PostMapping
-    public ResponseEntity<SavingsGoalResponse> createGoal(
-            @RequestBody SavingsGoalRequest request,
-            Principal principal) {
-        SavingsGoalResponse response = savingsGoalService.createGoal(request, principal);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<SavingsGoalResponse> createGoal(@SessionAttribute("user") User user,
+                                                          @RequestBody SavingsGoalRequest request) {
+        return new ResponseEntity<>(goalService.createGoal(user, request), HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<SavingsGoalResponse>> getGoalsForUser(Principal principal) {
-        List<SavingsGoalResponse> goals = savingsGoalService.getAllGoalResponsesForUser(principal);
-        return ResponseEntity.ok(goals);
-    }
-
-    @GetMapping("/{goalId}")
-    public ResponseEntity<SavingsGoalResponse> getGoalById(@PathVariable Long goalId) {
-        SavingsGoalResponse response = savingsGoalService.getGoalResponseById(goalId);
+    public ResponseEntity<Map<String, List<SavingsGoalResponse>>> getAllGoals(@SessionAttribute("user") User user) {
+        List<SavingsGoalResponse> goals = goalService.getAllGoals(user);
+        Map<String, List<SavingsGoalResponse>> response = new HashMap<>();
+        response.put("goals", goals);
         return ResponseEntity.ok(response);
     }
 
-    @PutMapping("/{goalId}")
-    public ResponseEntity<SavingsGoalResponse> updateGoal(
-            @PathVariable Long goalId,
-            @RequestBody SavingsGoalRequest request,
-            Principal principal) {
-        SavingsGoalResponse response = savingsGoalService.updateGoal(goalId, request, principal);
-        return ResponseEntity.ok(response);
+    @GetMapping("/{id}")
+    public ResponseEntity<SavingsGoalResponse> getGoalById(@SessionAttribute("user") User user,
+                                                           @PathVariable Long id) {
+        return ResponseEntity.ok(goalService.getGoalById(user, id));
     }
 
-    @DeleteMapping("/{goalId}")
-    public ResponseEntity<Map<String, String>> deleteGoal(
-        @PathVariable Long goalId,
-        Principal principal) {
-    boolean deleted = savingsGoalService.deleteGoal(goalId, principal);
-
-    if (deleted) {
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Goal deleted successfully");
-        return ResponseEntity.ok(response); // 200 OK with message
-    } else {
-        return ResponseEntity.notFound().build(); // 404 Not Found
+    @PutMapping("/{id}")
+    public ResponseEntity<SavingsGoalResponse> updateGoal(@SessionAttribute("user") User user,
+                                                          @PathVariable Long id,
+                                                          @RequestBody SavingsGoalUpdateRequest request) {
+        return ResponseEntity.ok(goalService.updateGoal(user, id, request));
     }
-}
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> deleteGoal(@SessionAttribute("user") User user,
+                                                          @PathVariable Long id) {
+        goalService.deleteGoal(user, id);
+        Map<String, String> res = new HashMap<>();
+        res.put("message", "Goal deleted successfully");
+        return ResponseEntity.ok(res);
+    }
 }

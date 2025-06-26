@@ -1,143 +1,167 @@
 package com.finance.finance.service.impl;
 
 import com.finance.finance.dto.request.SavingsGoalRequest;
+import com.finance.finance.dto.request.SavingsGoalUpdateRequest;
 import com.finance.finance.dto.response.SavingsGoalResponse;
 import com.finance.finance.entity.SavingsGoal;
 import com.finance.finance.entity.User;
-import com.finance.finance.exception.BadRequestException;
-import com.finance.finance.exception.ResourceNotFoundException;
 import com.finance.finance.repository.SavingsGoalRepository;
 import com.finance.finance.repository.TransactionRepository;
-import com.finance.finance.repository.UserRepository;
 import com.finance.finance.service.SavingsGoalService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class SavingsGoalServiceImpl implements SavingsGoalService {
 
-    private final SavingsGoalRepository savingsGoalRepository;
-    private final UserRepository userRepository;
+    private final SavingsGoalRepository goalRepository;
     private final TransactionRepository transactionRepository;
 
-    @Override
-    public SavingsGoalResponse createGoal(SavingsGoalRequest request, Principal principal) {
-        User user = getCurrentUser(principal);
-        validateRequest(request);
-
-        SavingsGoal goal = new SavingsGoal();
-        goal.setGoalName(request.getGoalName());
-        goal.setTargetAmount(request.getTargetAmount());
-        goal.setTargetDate(request.getTargetDate());
-        goal.setStartDate(LocalDate.now());
-        goal.setUser(user);
-
-        return mapToResponse(savingsGoalRepository.save(goal));
+    public SavingsGoalServiceImpl(SavingsGoalRepository goalRepository, TransactionRepository transactionRepository) {
+        this.goalRepository = goalRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     @Override
-    public List<SavingsGoalResponse> getAllGoalResponsesForUser(Principal principal) {
-        User user = getCurrentUser(principal);
+    public SavingsGoalResponse createGoal(User user, SavingsGoalRequest request) {
+        if (request.getTargetAmount() == null || request.getTargetAmount().doubleValue() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target amount must be positive");
+        }
 
-        return savingsGoalRepository.findByUser(user)
+        LocalDate targetDate = request.getTargetDate();
+        if (targetDate == null || targetDate.isBefore(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target date must be in the future");
+        }
+
+        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : LocalDate.now();
+
+        if (startDate.isAfter(targetDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date cannot be after target date");
+        }
+
+        SavingsGoal goal = SavingsGoal.builder()
+                .goalName(request.getGoalName())
+                .targetAmount(request.getTargetAmount())
+                .targetDate(targetDate)
+                .startDate(startDate)
+                .user(user)
+                .build();
+
+        goalRepository.save(goal);
+        return mapToResponse(goal);
+    }
+
+    @Override
+    public List<SavingsGoalResponse> getAllGoals(User user) {
+        return goalRepository.findByUser(user)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public SavingsGoalResponse updateGoal(Long goalId, SavingsGoalRequest request, Principal principal) {
-        User user = getCurrentUser(principal);
-
-        SavingsGoal goal = savingsGoalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Goal not found"));
-
-        if (!goal.getUser().getId().equals(user.getId())) {
-            throw new BadRequestException("You are not authorized to update this goal");
-        }
-
-        validateRequest(request);
-        goal.setGoalName(request.getGoalName());
-        goal.setTargetAmount(request.getTargetAmount());
-        goal.setTargetDate(request.getTargetDate());
-
-        return mapToResponse(savingsGoalRepository.save(goal));
-    }
-
-    @Override
-    public boolean deleteGoal(Long goalId, Principal principal) {
-        User user = getCurrentUser(principal);
-
-        SavingsGoal goal = savingsGoalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Goal not found"));
-
-        if (!goal.getUser().getId().equals(user.getId())) {
-            throw new BadRequestException("You are not authorized to delete this goal");
-        }
-
-        savingsGoalRepository.delete(goal);
-        return true;
-    }
-
-    @Override
-    public SavingsGoalResponse getGoalResponseById(Long goalId) {
-        SavingsGoal goal = savingsGoalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Goal not found"));
+    public SavingsGoalResponse getGoalById(User user, Long id) {
+        SavingsGoal goal = goalRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Goal not found"));
         return mapToResponse(goal);
     }
 
-    private void validateRequest(SavingsGoalRequest request) {
-        if (request.getTargetAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BadRequestException("Target amount must be positive");
+    @Override
+    public SavingsGoalResponse updateGoal(User user, Long id, SavingsGoalUpdateRequest request) {
+        SavingsGoal goal = goalRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Goal not found"));
+
+        if (request.getTargetAmount() != null && request.getTargetAmount().doubleValue() > 0) {
+            goal.setTargetAmount(request.getTargetAmount());
         }
 
-        if (request.getTargetDate().isBefore(LocalDate.now())) {
-            throw new BadRequestException("Target date must be in the future");
+        if (request.getTargetDate() != null && request.getTargetDate().isAfter(LocalDate.now())) {
+            goal.setTargetDate(request.getTargetDate());
         }
+
+        goalRepository.save(goal);
+        return mapToResponse(goal);
     }
 
-    private User getCurrentUser(Principal principal) {
-        return userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + principal.getName()));
+    @Override
+    public void deleteGoal(User user, Long id) {
+        SavingsGoal goal = goalRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Goal not found"));
+        goalRepository.delete(goal);
     }
 
     private SavingsGoalResponse mapToResponse(SavingsGoal goal) {
-        BigDecimal income = transactionRepository
-                .getSumAmountByUserAndTypeAndDateAfter(goal.getUser(), "INCOME", goal.getStartDate())
-                .orElse(BigDecimal.ZERO);
+    BigDecimal income = transactionRepository.sumByUserAndDateAfter(goal.getUser(), goal.getStartDate(), "INCOME");
+    BigDecimal expense = transactionRepository.sumByUserAndDateAfter(goal.getUser(), goal.getStartDate(), "EXPENSE");
 
-        BigDecimal expense = transactionRepository
-                .getSumAmountByUserAndTypeAndDateAfter(goal.getUser(), "EXPENSE", goal.getStartDate())
-                .orElse(BigDecimal.ZERO);
+    // Ensure nulls are treated as zero
+    income = income != null ? income : BigDecimal.ZERO;
+    expense = expense != null ? expense : BigDecimal.ZERO;
 
-        BigDecimal progress = income.subtract(expense);
-        BigDecimal remaining = goal.getTargetAmount().subtract(progress);
+    BigDecimal progress = income.subtract(expense).max(BigDecimal.ZERO);
+    BigDecimal percentage;
 
-        double percentage = BigDecimal.ZERO.doubleValue();
-        if (goal.getTargetAmount().compareTo(BigDecimal.ZERO) > 0) {
-            percentage = progress.multiply(BigDecimal.valueOf(100))
-                    .divide(goal.getTargetAmount(), 2, RoundingMode.HALF_UP)
-                    .doubleValue();
-        }
+    // Round percentage strictly to one decimal place using DOWN
+    // if (goal.getTargetAmount().compareTo(BigDecimal.ZERO) > 0) {
+    //     percentage = progress
+    //             .multiply(BigDecimal.valueOf(100))
+    //             .divide(goal.getTargetAmount(), 5, RoundingMode.HALF_UP) // more precision before truncation
+    //             .setScale(1, RoundingMode.DOWN); // exactly one decimal like 60.3, not 60.30
+    // } else {
+    //     percentage = BigDecimal.ZERO;
+    // }
 
-        SavingsGoalResponse response = new SavingsGoalResponse();
-        response.setId(goal.getId());
-        response.setGoalName(goal.getGoalName());
-        response.setTargetAmount(goal.getTargetAmount());
-        response.setTargetDate(goal.getTargetDate());
-        response.setStartDate(goal.getStartDate());
-        response.setProgressAmount(progress.max(BigDecimal.ZERO));
-        response.setRemainingAmount(remaining.max(BigDecimal.ZERO));
-        response.setCompletionPercentage(Math.min(100.0, Math.max(0.0, percentage)));
-
-        return response;
+    
+if (goal.getTargetAmount().compareTo(BigDecimal.ZERO) > 0) {
+    percentage = progress
+            .multiply(BigDecimal.valueOf(100))
+            .divide(goal.getTargetAmount(), 2, RoundingMode.HALF_UP);
+         
+    // Format: remove trailing zeros and use minimum decimal places needed
+    percentage = percentage.stripTrailingZeros();
+    
+    // Ensure at least 1 decimal place for consistency
+    if (percentage.scale() < 1) {
+        percentage = percentage.setScale(1, RoundingMode.HALF_UP);
     }
+} else {
+    // If target amount is 0 or negative, percentage is 0
+    percentage = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+}
+
+    BigDecimal remaining = goal.getTargetAmount().subtract(progress).max(BigDecimal.ZERO);
+
+    // Force strict equality: return 0 instead of 0.00 for zero values
+    if (progress.compareTo(BigDecimal.ZERO) == 0) {
+        progress = BigDecimal.ZERO;
+    } else {
+        progress = progress.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    if (remaining.compareTo(BigDecimal.ZERO) == 0) {
+        remaining = BigDecimal.ZERO;
+    } else {
+        remaining = remaining.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    return SavingsGoalResponse.builder()
+            .id(goal.getId())
+            .goalName(goal.getGoalName())
+            .targetAmount(goal.getTargetAmount().setScale(2, RoundingMode.HALF_UP))
+            .targetDate(goal.getTargetDate().toString())
+            .startDate(goal.getStartDate().toString())
+            .currentProgress(progress)               // 0 if zero, else 2 decimal
+            .progressPercentage(percentage)          // 0.0 if zero, else 1 decimal
+            .remainingAmount(remaining)              // 0 if zero, else 2 decimal
+            .build();
+}
+
+
 }

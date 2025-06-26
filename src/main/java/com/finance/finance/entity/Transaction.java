@@ -2,12 +2,13 @@ package com.finance.finance.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "transactions")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Transaction {
@@ -16,22 +17,20 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private Double amount;
 
-    @Column(nullable = false)
     private LocalDate date;
+
+    private String description;
 
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    private String description;
-
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false)
-    private String type;  // Add this line (INCOME / EXPENSE etc.)
+    @Column(nullable = false) // ✅ Make sure this is present
+    private String type;       // ✅ This is the missing field causing the error
 }

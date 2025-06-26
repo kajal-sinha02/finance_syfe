@@ -1,11 +1,12 @@
 package com.finance.finance.dto.request;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class CategoryRequest {
     private String name;
-    private String type; // "INCOME" or "EXPENSE"
+    private String type;
 }

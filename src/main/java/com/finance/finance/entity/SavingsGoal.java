@@ -2,6 +2,7 @@ package com.finance.finance.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -11,6 +12,7 @@ import java.time.LocalDate;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class SavingsGoal {
 
     @Id
@@ -27,7 +29,7 @@ public class SavingsGoal {
     private LocalDate targetDate;
 
     @Column(nullable = false)
-    private LocalDate startDate = LocalDate.now();
+    private LocalDate startDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
