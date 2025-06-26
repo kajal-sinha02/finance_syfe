@@ -125,7 +125,7 @@ Session-based login using `HttpSession`. After login, authenticated APIs use `@S
 - Used Spring Boot for fast development with REST APIs.
 - Session-based authentication for simplicity and security in a monolithic setup.
 - Layered architecture: Controllers → Services → Repositories.
-- H2 used for development; can be replaced with MySQL/PostgreSQL.
+- PostgreSQL used for development; can be replaced with H2/MySQL.
 
 ---
 
