@@ -24,4 +24,6 @@ public class ReportResponse {
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     @Builder.Default
     private BigDecimal netSavings = BigDecimal.ZERO.setScale(2);
+
+    
 }

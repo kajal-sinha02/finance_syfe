@@ -23,4 +23,8 @@ public class CategoryResponse {
     public boolean getCustom() {
         return isCustom;
     }
+    @JsonProperty("custom")
+public boolean isCustom() {
+    return isCustom;
+}
 }

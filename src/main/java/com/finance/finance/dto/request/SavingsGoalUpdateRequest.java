@@ -9,6 +9,7 @@ import java.time.LocalDate;
 
 // saving goal update request dto
 public class SavingsGoalUpdateRequest {
+    private String goalName;
     private BigDecimal targetAmount;
     private LocalDate targetDate;
 }

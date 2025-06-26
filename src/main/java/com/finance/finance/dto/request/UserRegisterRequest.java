@@ -5,12 +5,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.AllArgsConstructor;
 
 @Getter
 @Setter
 
 // user login register dto 
-
+@AllArgsConstructor // ✅ Add this to generate the constructor
 public class UserRegisterRequest {
     @Email(message = "Invalid email format")
     @NotBlank

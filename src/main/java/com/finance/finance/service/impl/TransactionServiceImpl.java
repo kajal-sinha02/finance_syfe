@@ -59,8 +59,10 @@ public class TransactionServiceImpl implements TransactionService {
                 .type(category.getType().toUpperCase())
                 .build();
 
-        transactionRepository.save(transaction);
-        return mapToResponse(transaction);
+        // transactionRepository.save(transaction);
+        // return mapToResponse(transaction);
+        Transaction savedTransaction = transactionRepository.save(transaction);
+return mapToResponse(savedTransaction);
     }
 
     // get transaction

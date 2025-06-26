@@ -10,5 +10,7 @@ import lombok.*;
 // transaction update request dto
 public class TransactionUpdateRequest {
     private Double amount;
+     private String date;       
+    private String category; 
     private String description;
 }
