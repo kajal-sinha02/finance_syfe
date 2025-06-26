@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// controllers for transaction endpoints
 @RestController
 @RequestMapping("/api/transactions")
 public class TransactionController {
@@ -25,6 +26,7 @@ public class TransactionController {
         this.transactionService = transactionService;
     }
 
+    // create transaction endpoint
     @PostMapping
     public ResponseEntity<TransactionResponse> createTransaction(@SessionAttribute("user") User user,
                                                                  @RequestBody TransactionRequest request) {
@@ -32,18 +34,8 @@ public class TransactionController {
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
-    // @GetMapping
-    // public ResponseEntity<Map<String, List<TransactionResponse>>> getTransactions(
-    //         @SessionAttribute("user") User user,
-    //         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-    //         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-    //         @RequestParam(required = false) Long categoryId) {
-
-    //     List<TransactionResponse> list = transactionService.getTransactions(user, startDate, endDate, categoryId);
-    //     Map<String, List<TransactionResponse>> response = new HashMap<>();
-    //     response.put("transactions", list);
-    //     return ResponseEntity.ok(response);
-    // }
+    // get transaction endpoint
+    
     @GetMapping
 public ResponseEntity<Map<String, List<TransactionResponse>>> getTransactions(
         @SessionAttribute("user") User user,
@@ -57,6 +49,8 @@ public ResponseEntity<Map<String, List<TransactionResponse>>> getTransactions(
     return ResponseEntity.ok(response);
 }
 
+// update transaction endpoint
+
     @PutMapping("/{id}")
     public ResponseEntity<TransactionResponse> updateTransaction(@SessionAttribute("user") User user,
                                                                  @PathVariable Long id,
@@ -64,6 +58,8 @@ public ResponseEntity<Map<String, List<TransactionResponse>>> getTransactions(
         TransactionResponse updated = transactionService.updateTransaction(user, id, request);
         return ResponseEntity.ok(updated);
     }
+
+    // delete transaction endpoint
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteTransaction(@SessionAttribute("user") User user,

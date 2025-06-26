@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.*;
 
+// service implementation for report
 @Service
 public class ReportServiceImpl implements ReportService {
 
@@ -24,6 +25,7 @@ public class ReportServiceImpl implements ReportService {
         this.transactionRepository = transactionRepository;
     }
 
+    // get monthly response
     @Override
     public ReportResponse getMonthlyReport(User user, int year, int month) {
         try {
@@ -39,6 +41,7 @@ public class ReportServiceImpl implements ReportService {
         }
     }
 
+    // get yearly response
     @Override
     public ReportResponse getYearlyReport(User user, int year) {
         LocalDate start = LocalDate.of(year, 1, 1);
@@ -46,6 +49,7 @@ public class ReportServiceImpl implements ReportService {
         return buildReport(user, start, end, year, null);
     }
 
+    // build the report
     private ReportResponse buildReport(User user, LocalDate start, LocalDate end, int year, Integer month) {
         Map<String, BigDecimal> income = getCategorySums(user, start, end, "INCOME");
         Map<String, BigDecimal> expense = getCategorySums(user, start, end, "EXPENSE");
@@ -59,17 +63,6 @@ if (netSavings.compareTo(BigDecimal.ZERO) == 0) {
     netSavings = netSavings.setScale(2, RoundingMode.HALF_UP);
 }
 
-        // DEBUG LOGS
-        System.out.println("=== Report Debug Info ===");
-        System.out.println("User ID: " + user.getId());
-        System.out.println("Period: " + start + " to " + end);
-        System.out.println("Income Map: " + income);
-        System.out.println("Expense Map: " + expense);
-        System.out.println("Total Income: " + totalIncome);
-        System.out.println("Total Expense: " + totalExpense);
-        System.out.println("Net Savings: " + netSavings);
-        System.out.println("=========================");
-
         return ReportResponse.builder()
                 .year(year)
                 .month(month != null ? month : 0)
@@ -79,6 +72,8 @@ if (netSavings.compareTo(BigDecimal.ZERO) == 0) {
                 .build();
     }
 
+    // get sum of each category
+    
     private Map<String, BigDecimal> getCategorySums(User user, LocalDate start, LocalDate end, String type) {
     List<Object[]> result = transactionRepository.sumAmountByCategoryAndType(user, start, end, type);
     Map<String, BigDecimal> map = new HashMap<>();

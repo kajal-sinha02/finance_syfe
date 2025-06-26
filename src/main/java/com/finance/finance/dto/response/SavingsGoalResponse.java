@@ -10,6 +10,7 @@ import java.util.Map;
 
 @Data
 @Builder
+// saving goal response dto
 public class SavingsGoalResponse {
     private Long id;
     private String goalName;

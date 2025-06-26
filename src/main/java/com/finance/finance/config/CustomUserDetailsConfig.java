@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
+// config for custom user details
+// loads a user from database when authentication is performed
 @Configuration
 public class CustomUserDetailsConfig {
 

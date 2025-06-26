@@ -1,3 +1,6 @@
+/**
+ * Represents a financial transaction (income or expense).
+ */
 package com.finance.finance.entity;
 
 import jakarta.persistence.*;
@@ -6,6 +9,7 @@ import lombok.*;
 import java.time.LocalDate;
 
 @Entity
+// Constructors, getters, setters..
 @Getter
 @Setter
 @Builder
@@ -31,6 +35,6 @@ public class Transaction {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false) // ✅ Make sure this is present
-    private String type;       // ✅ This is the missing field causing the error
+    @Column(nullable = false)
+    private String type;       
 }

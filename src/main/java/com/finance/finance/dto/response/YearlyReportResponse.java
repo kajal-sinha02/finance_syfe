@@ -6,6 +6,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.util.Map;
 
+// yearly response dto
 @Data
 @AllArgsConstructor
 public class YearlyReportResponse {

@@ -14,6 +14,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// service implementation for category
+
 @Service
 public class CategoryServiceImpl implements CategoryService {
 
@@ -26,6 +28,7 @@ public class CategoryServiceImpl implements CategoryService {
         this.transactionRepository = transactionRepository;
     }
 
+    // get all categories
     @Override
     public List<CategoryResponse> getAllCategories(User user) {
         return categoryRepository.findByUserOrIsCustomFalse(user)
@@ -34,6 +37,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .collect(Collectors.toList());
     }
 
+    // create category
     @Override
     public CategoryResponse createCategory(User user, CategoryRequest request) {
         String name = request.getName().trim();
@@ -58,6 +62,7 @@ public class CategoryServiceImpl implements CategoryService {
         return mapToResponse(category);
     }
 
+    // delete category
     @Override
     public void deleteCategory(User user, String name) {
         Category category = categoryRepository.findByNameAndUser(name, user)
@@ -74,6 +79,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         categoryRepository.delete(category);
     }
+    // map responses
     private CategoryResponse mapToResponse(Category category) {
         return CategoryResponse.builder()
                 .name(category.getName())

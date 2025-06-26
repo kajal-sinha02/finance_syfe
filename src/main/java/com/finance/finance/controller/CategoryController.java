@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// controllers for category endpoints
 @RestController
 @RequestMapping("/api/categories")
 public class CategoryController {
@@ -22,6 +23,8 @@ public class CategoryController {
         this.categoryService = categoryService;
     }
 
+    // get all categories endpoint
+
     @GetMapping
     public ResponseEntity<Map<String, List<CategoryResponse>>> getAllCategories(@SessionAttribute("user") User user) {
         List<CategoryResponse> categories = categoryService.getAllCategories(user);
@@ -30,6 +33,8 @@ public class CategoryController {
         return ResponseEntity.ok(response);
     }
 
+    // create categories endpoint
+
     @PostMapping
     public ResponseEntity<CategoryResponse> createCategory(@SessionAttribute("user") User user,
                                                            @RequestBody CategoryRequest request) {
@@ -37,6 +42,7 @@ public class CategoryController {
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
+    // delete category by name endpoint
     @DeleteMapping("/{name}")
     public ResponseEntity<Map<String, String>> deleteCategory(@SessionAttribute("user") User user,
                                                               @PathVariable String name) {

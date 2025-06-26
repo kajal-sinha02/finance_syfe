@@ -5,6 +5,9 @@ import com.finance.finance.entity.User;
 
 import java.util.Optional;
 
+/**
+ * Repository for performing CRUD operations on User entities.
+ */
 public interface UserRepository extends JpaRepository<User, Long> {
     
     // Find user by their username (email)

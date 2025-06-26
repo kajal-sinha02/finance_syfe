@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+// seeder for default categories
 @Component
 public class DefaultCategorySeeder {
 

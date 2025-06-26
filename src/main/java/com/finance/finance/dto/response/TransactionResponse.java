@@ -9,6 +9,8 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
+// transaction response dto
 public class TransactionResponse {
     private Long id;
    private BigDecimal amount;

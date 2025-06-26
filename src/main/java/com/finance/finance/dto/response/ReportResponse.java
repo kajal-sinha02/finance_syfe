@@ -10,6 +10,7 @@ import java.util.Map;
 
 @Data
 @Builder
+// report response dto 
 public class ReportResponse {
     private int month; // 0 for yearly
     private int year;

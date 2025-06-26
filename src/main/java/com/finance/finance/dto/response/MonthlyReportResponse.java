@@ -8,6 +8,7 @@ import java.util.Map;
 
 @Data
 @AllArgsConstructor
+// monthly response dto
 public class MonthlyReportResponse {
     private int month;
     private int year;

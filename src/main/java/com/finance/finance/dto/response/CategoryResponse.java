@@ -9,6 +9,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
+// category response dto
+
 public class CategoryResponse {
     private String name;
     private String type;

@@ -8,6 +8,9 @@ import lombok.Setter;
 
 @Getter
 @Setter
+
+// user login register dto 
+
 public class UserRegisterRequest {
     @Email(message = "Invalid email format")
     @NotBlank

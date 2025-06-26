@@ -6,6 +6,8 @@ import lombok.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+
+// transaction request dto
 public class TransactionRequest {
     private Double amount;
     private String date;

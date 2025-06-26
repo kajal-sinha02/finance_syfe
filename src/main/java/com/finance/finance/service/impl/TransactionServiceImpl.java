@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// transaction service
 @Service
 public class TransactionServiceImpl implements TransactionService {
 
@@ -29,6 +30,7 @@ public class TransactionServiceImpl implements TransactionService {
         this.categoryRepository = categoryRepository;
     }
 
+    // create transaction
     @Override
     public TransactionResponse createTransaction(User user, TransactionRequest request) {
         if (request.getAmount() == null || request.getAmount() <= 0) {
@@ -61,36 +63,7 @@ public class TransactionServiceImpl implements TransactionService {
         return mapToResponse(transaction);
     }
 
-    // @Override
-    // public List<TransactionResponse> getTransactions(User user, LocalDate start, LocalDate end, Long categoryId) {
-    //     List<Transaction> transactions;
-
-    //     if (start != null && end != null) {
-    //         transactions = transactionRepository.findByUserAndDateBetween(user, start, end);
-    //     } else {
-    //         transactions = transactionRepository.findByUser(user);
-    //     }
-
-    //     return transactions.stream()
-    //             .filter(t -> categoryId == null || t.getCategory().getId().equals(categoryId))
-    //             .map(this::mapToResponse)
-    //             .collect(Collectors.toList());
-    // }
-//     @Override
-// public List<TransactionResponse> getTransactions(User user, LocalDate start, LocalDate end, Long categoryId) {
-//     List<Transaction> transactions;
-
-//     if (start != null && end != null) {
-//         transactions = transactionRepository.findByUserAndDateBetween(user, start, end);
-//     } else {
-//         transactions = transactionRepository.findByUser(user);
-//     }
-
-//     return transactions.stream()
-//             .filter(t -> categoryId == null || t.getCategory().getId().equals(categoryId))
-//             .map(this::mapToResponse)
-//             .collect(Collectors.toList());
-// }
+    // get transaction
 @Override
 public List<TransactionResponse> getTransactions(User user, LocalDate start, LocalDate end, String categoryName) {
     List<Transaction> transactions;
@@ -106,6 +79,7 @@ public List<TransactionResponse> getTransactions(User user, LocalDate start, Loc
             .map(this::mapToResponse)
             .collect(Collectors.toList());
 }
+// update transaction
 
     @Override
     public TransactionResponse updateTransaction(User user, Long id, TransactionUpdateRequest request) {
@@ -125,6 +99,8 @@ public List<TransactionResponse> getTransactions(User user, LocalDate start, Loc
         return mapToResponse(transaction);
     }
 
+    // delete transaction 
+
     @Override
     public void deleteTransaction(User user, Long id) {
         Transaction transaction = transactionRepository.findById(id)
@@ -133,6 +109,7 @@ public List<TransactionResponse> getTransactions(User user, LocalDate start, Loc
 
         transactionRepository.delete(transaction);
     }
+    // map the responses
 
     private TransactionResponse mapToResponse(Transaction transaction) {
         return TransactionResponse.builder()
